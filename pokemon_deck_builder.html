@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pokémon TCG — Deck Builder</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #080c10;
+  --surface: #0d1117;
+  --panel: #111820;
+  --card-bg: #141c26;
+  --border: #1e2d3d;
+  --border2: #253545;
+  --accent: #00d4ff;
+  --accent-dim: rgba(0,212,255,0.15);
+  --accent2: #ff6b35;
+  --accent3: #7fff00;
+  --gold: #ffd700;
+  --text: #c8d8e8;
+  --text-bright: #e8f4ff;
+  --muted: #4a6070;
+  --danger: #ff4444;
+  --success: #44ff88;
+  --mono: 'Share Tech Mono', monospace;
+  --display: 'Orbitron', sans-serif;
+  --body: 'Rajdhani', sans-serif;
+
+  /* type colors */
+  --fire: #ff6633;
+  --water: #3399ff;
+  --grass: #44bb44;
+  --lightning: #ffcc00;
+  --psychic: #dd44cc;
+  --fighting: #cc6633;
+  --darkness: #9966cc;
+  --metal: #99aacc;
+  --dragon: #6688cc;
+  --colorless: #aabbcc;
+  --fairy: #ff88cc;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 14px;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scanline overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+.logo {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(0,212,255,0.5);
+  white-space: nowrap;
+}
+
+.logo span { color: var(--gold); }
+
+.header-stats {
+  display: flex;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.hstat { display: flex; gap: 6px; align-items: center; }
+.hstat-val { color: var(--accent); }
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ── LAYOUT ── */
+.app-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr 300px;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── LEFT PANEL: FILTERS ── */
+.filter-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--display);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filter-body {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.filter-section { display: flex; flex-direction: column; gap: 6px; }
+
+.filter-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.search-input {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--text-bright);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--muted); }
+
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  padding: 3px 8px;
+  border: 1px solid var(--border2);
+  background: var(--panel);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 1px;
+}
+
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+.type-chip {
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  font-family: var(--mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  opacity: 0.5;
+}
+.type-chip.active { opacity: 1; border-color: currentColor; }
+
+select {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 7px 8px;
+  outline: none;
+  width: 100%;
+  cursor: pointer;
+}
+
+.clear-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 5px 10px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+  width: 100%;
+}
+.clear-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+/* ── CENTER: CARD BROWSER ── */
+.card-browser {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.browser-toolbar {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.result-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.result-count span { color: var(--accent); }
+
+.sort-select {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 8px;
+  outline: none;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.view-toggle { display: flex; gap: 2px; }
+.view-btn {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.view-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+/* Card Grid */
+.card-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.card-grid.list-view {
+  grid-template-columns: 1fr;
+  gap: 3px;
+}
+
+.card-thumb {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-thumb:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,212,255,0.2);
+  z-index: 10;
+}
+
+.card-thumb.in-deck { border-color: var(--accent3); }
+.card-thumb.maxed { border-color: var(--danger); opacity: 0.7; }
+
+.card-img-wrap {
+  position: relative;
+  padding-top: 140%;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.card-img-wrap img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.2s;
+}
+
+.card-img-wrap .img-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--muted);
+}
+
+.card-count-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--accent3);
+  color: var(--bg);
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 5px;
+  display: none;
+}
+.card-thumb.in-deck .card-count-badge { display: block; }
+
+.card-thumb-info {
+  padding: 5px 6px;
+  flex: 1;
+}
+
+.card-thumb-name {
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-bright);
+  line-height: 1.2;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-thumb-sub {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.add-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,212,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  font-family: var(--display);
+  font-size: 28px;
+  color: var(--accent);
+  font-weight: 900;
+}
+.card-thumb:hover .add-overlay { opacity: 1; }
+
+/* List view card */
+.card-list-row {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.1s;
+  display: grid;
+  grid-template-columns: 36px 1fr 80px 70px 60px 50px;
+  align-items: center;
+  padding: 6px 10px;
+  gap: 8px;
+}
+.card-list-row:hover { border-color: var(--accent); background: rgba(0,212,255,0.03); }
+.card-list-row.in-deck { border-color: var(--accent3); }
+.card-list-row.maxed { opacity: 0.6; }
+
+.list-img { width: 28px; height: 40px; object-fit: cover; }
+.list-name { font-weight: 600; color: var(--text-bright); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-set { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.list-type { font-family: var(--mono); font-size: 10px; }
+.list-stage { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.list-hp { font-family: var(--display); font-size: 12px; color: var(--gold); text-align: right; }
+
+/* ── RIGHT PANEL: DECK ── */
+.deck-panel {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.deck-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.deck-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-name-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border2);
+  color: var(--text-bright);
+  font-family: var(--display);
+  font-size: 13px;
+  padding: 2px 4px;
+  outline: none;
+  flex: 1;
+  min-width: 0;
+}
+.deck-name-input:focus { border-color: var(--accent); }
+
+.deck-count {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.deck-count.valid { color: var(--accent3); }
+.deck-count.invalid { color: var(--gold); }
+.deck-count.over { color: var(--danger); }
+
+.deck-bar-wrap {
+  background: var(--panel);
+  height: 4px;
+  position: relative;
+}
+.deck-bar {
+  height: 100%;
+  background: var(--accent3);
+  transition: width 0.3s, background 0.3s;
+  max-width: 100%;
+}
+.deck-bar.over { background: var(--danger); }
+
+.deck-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.db-item {
+  background: var(--panel);
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.db-num { font-family: var(--display); font-size: 16px; color: var(--accent); }
+.db-label { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+
+.deck-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deck-section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  padding: 6px 4px 3px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.deck-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  transition: border-color 0.1s;
+}
+.deck-entry:hover { border-color: var(--border2); }
+
+.deck-entry-img {
+  width: 22px;
+  height: 30px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.deck-entry-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deck-entry-set {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.qty-btn {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+  line-height: 1;
+  padding: 0;
+}
+.qty-btn:hover { border-color: var(--accent); color: var(--accent); }
+.qty-btn.remove:hover { border-color: var(--danger); color: var(--danger); }
+
+.qty-num {
+  font-family: var(--display);
+  font-size: 13px;
+  color: var(--gold);
+  min-width: 14px;
+  text-align: center;
+}
+
+/* Validation warnings */
+.validation-panel {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.val-item {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 6px;
+  border-left: 2px solid;
+}
+.val-item.warn { border-color: var(--gold); color: var(--gold); background: rgba(255,215,0,0.05); }
+.val-item.err { border-color: var(--danger); color: var(--danger); background: rgba(255,68,68,0.05); }
+.val-item.ok { border-color: var(--success); color: var(--success); background: rgba(68,255,136,0.05); }
+
+/* Deck Actions */
+.deck-actions {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn {
+  padding: 8px 14px;
+  font-family: var(--display);
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  text-align: center;
+}
+.btn-primary { background: var(--accent); color: var(--bg); }
+.btn-primary:hover { background: #33ddff; box-shadow: 0 0 16px rgba(0,212,255,0.4); }
+.btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--muted); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: transparent; border: 1px solid var(--border2); color: var(--muted); }
+.btn-danger:hover { border-color: var(--danger); color: var(--danger); }
+.btn-row { display: flex; gap: 6px; }
+.btn-row .btn { flex: 1; }
+
+/* ── CARD DETAIL MODAL ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  max-width: 680px;
+  width: 90%;
+  max-height: 88vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 0 60px rgba(0,212,255,0.15);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px; right: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  width: 28px; height: 28px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  z-index: 10;
+}
+.modal-close:hover { border-color: var(--danger); color: var(--danger); }
+
+.modal-inner {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 0;
+}
+
+.modal-img-side {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.modal-img {
+  width: 100%;
+  max-width: 180px;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.modal-add-btn {
+  width: 100%;
+  padding: 10px;
+  font-family: var(--display);
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  background: var(--accent);
+  color: var(--bg);
+  transition: all 0.15s;
+  letter-spacing: 1px;
+}
+.modal-add-btn:hover { background: #33ddff; }
+.modal-add-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+.modal-remove-btn {
+  width: 100%;
+  padding: 8px;
+  font-family: var(--display);
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  transition: all 0.15s;
+}
+.modal-remove-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+.modal-info-side { padding: 20px; }
+
+.modal-name {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--text-bright);
+  margin-bottom: 4px;
+}
+
+.modal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.meta-tag {
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+.meta-tag.highlight { border-color: var(--accent); color: var(--accent); }
+.meta-tag.gold { border-color: var(--gold); color: var(--gold); }
+
+.modal-section { margin-bottom: 14px; }
+.modal-section-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.attack-block {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+.attack-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.attack-cost { display: flex; gap: 2px; }
+.energy-pip {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  font-size: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  color: var(--bg);
+}
+.attack-name { font-weight: 700; color: var(--text-bright); font-size: 13px; }
+.attack-damage { font-family: var(--display); font-size: 15px; color: var(--gold); margin-left: auto; }
+.attack-text { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+.ability-block {
+  background: rgba(255,107,53,0.05);
+  border: 1px solid rgba(255,107,53,0.3);
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+.ability-label { font-family: var(--mono); font-size: 9px; color: var(--accent2); letter-spacing: 1px; margin-bottom: 2px; }
+.ability-name { font-weight: 700; color: var(--text-bright); margin-bottom: 3px; }
+.ability-text { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+.rules-text {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  font-family: var(--mono);
+  background: var(--panel);
+  padding: 8px;
+  border-left: 2px solid var(--accent2);
+}
+
+.stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+.stat-item { background: var(--panel); padding: 6px 8px; }
+.stat-val { font-family: var(--display); font-size: 16px; color: var(--gold); }
+.stat-key { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+
+/* ── EXPORT MODAL ── */
+.export-modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  max-width: 500px;
+  width: 90%;
+  padding: 24px;
+  position: relative;
+}
+.export-title { font-family: var(--display); font-size: 18px; color: var(--accent); margin-bottom: 16px; letter-spacing: 1px; }
+.export-textarea {
+  width: 100%;
+  height: 300px;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 12px;
+  resize: none;
+  outline: none;
+  line-height: 1.6;
+}
+
+/* Loading screen */
+#loadingScreen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+.load-logo { font-family: var(--display); font-size: 36px; color: var(--accent); letter-spacing: 4px; text-shadow: 0 0 30px rgba(0,212,255,0.6); }
+.load-sub { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 2px; }
+.load-bar-wrap { width: 280px; height: 2px; background: var(--border); }
+.load-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+.load-msg { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* Error screen */
+#errorScreen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 9000;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.err-title { font-family: var(--display); font-size: 24px; color: var(--danger); }
+.err-msg { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: center; max-width: 400px; line-height: 1.6; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 10px 20px;
+  z-index: 9998;
+  transition: transform 0.3s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.success { border-color: var(--success); color: var(--success); }
+.toast.warn { border-color: var(--gold); color: var(--gold); }
+.toast.error { border-color: var(--danger); color: var(--danger); }
+
+/* No results */
+.no-results {
+  grid-column: 1/-1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 10px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.no-results-icon { font-size: 36px; opacity: 0.3; }
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loadingScreen">
+  <div class="load-logo">TCG DECK BUILDER</div>
+  <div class="load-sub">REGULATION H · I · J</div>
+  <div class="load-bar-wrap"><div class="load-bar" id="loadBar"></div></div>
+  <div class="load-msg" id="loadMsg">Loading TCG-HIJ-Database.json...</div>
+</div>
+
+<!-- Error Screen -->
+<div id="errorScreen">
+  <div class="err-title">⚠ DATABASE NOT FOUND</div>
+  <div class="err-msg" id="errMsg">Could not load TCG-HIJ-Database.json.<br>Make sure it is in the same folder as this HTML file.<br><br>Then open this file through a local server or use the Chrome flag:<br>--allow-file-access-from-files</div>
+  <button class="btn btn-outline" style="margin-top:12px" onclick="location.reload()">RETRY</button>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">TCG <span>◆</span> DECK BUILDER</div>
+  <div class="header-stats">
+    <div class="hstat">DB: <span class="hstat-val" id="hTotalCards">—</span> cards</div>
+    <div class="hstat">Sets: <span class="hstat-val" id="hTotalSets">—</span></div>
+    <div class="hstat">Showing: <span class="hstat-val" id="hShowing">—</span></div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-outline" onclick="showExport()">⬆ EXPORT DECK</button>
+    <button class="btn btn-outline" onclick="loadDeckFromText()">⬇ IMPORT</button>
+  </div>
+</header>
+
+<!-- Main Layout -->
+<div class="app-layout">
+
+  <!-- LEFT: Filters -->
+  <div class="filter-panel">
+    <div class="panel-header">
+      FILTERS
+      <button class="clear-btn" style="width:auto;padding:2px 8px" onclick="clearFilters()">CLEAR ALL</button>
+    </div>
+    <div class="filter-body">
+
+      <div class="filter-section">
+        <div class="filter-label">Search</div>
+        <input type="text" class="search-input" id="searchInput" placeholder="Card name, attack, ability..." oninput="applyFilters()">
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">Supertype</div>
+        <div class="chip-group" id="supertypeChips">
+          <div class="chip active" data-val="all" onclick="setChip(this,'supertype')">ALL</div>
+          <div class="chip" data-val="Pokémon" onclick="setChip(this,'supertype')">POKÉMON</div>
+          <div class="chip" data-val="Trainer" onclick="setChip(this,'supertype')">TRAINER</div>
+          <div class="chip" data-val="Energy" onclick="setChip(this,'supertype')">ENERGY</div>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">Stage</div>
+        <div class="chip-group" id="stageChips">
+          <div class="chip active" data-val="all" onclick="setChip(this,'stage')">ALL</div>
+          <div class="chip" data-val="Basic" onclick="setChip(this,'stage')">BASIC</div>
+          <div class="chip" data-val="Stage 1" onclick="setChip(this,'stage')">STAGE 1</div>
+          <div class="chip" data-val="Stage 2" onclick="setChip(this,'stage')">STAGE 2</div>
+          <div class="chip" data-val="V" onclick="setChip(this,'stage')">V</div>
+          <div class="chip" data-val="VSTAR" onclick="setChip(this,'stage')">VSTAR</div>
+          <div class="chip" data-val="VMAX" onclick="setChip(this,'stage')">VMAX</div>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">Type</div>
+        <div class="chip-group" id="typeChips">
+          <div class="chip active" data-val="all" onclick="setChip(this,'type')">ALL</div>
+          <div class="type-chip active" data-val="Fire" onclick="setChip(this,'type')" style="color:var(--fire)">🔥 Fire</div>
+          <div class="type-chip active" data-val="Water" onclick="setChip(this,'type')" style="color:var(--water)">💧 Water</div>
+          <div class="type-chip active" data-val="Grass" onclick="setChip(this,'type')" style="color:var(--grass)">🌿 Grass</div>
+          <div class="type-chip active" data-val="Lightning" onclick="setChip(this,'type')" style="color:var(--lightning)">⚡ Lightning</div>
+          <div class="type-chip active" data-val="Psychic" onclick="setChip(this,'type')" style="color:var(--psychic)">🔮 Psychic</div>
+          <div class="type-chip active" data-val="Fighting" onclick="setChip(this,'type')" style="color:var(--fighting)">🥊 Fighting</div>
+          <div class="type-chip active" data-val="Darkness" onclick="setChip(this,'type')" style="color:var(--darkness)">🌑 Darkness</div>
+          <div class="type-chip active" data-val="Metal" onclick="setChip(this,'type')" style="color:var(--metal)">⚙️ Metal</div>
+          <div class="type-chip active" data-val="Dragon" onclick="setChip(this,'type')" style="color:var(--dragon)">🐉 Dragon</div>
+          <div class="type-chip active" data-val="Colorless" onclick="setChip(this,'type')" style="color:var(--colorless)">⬜ Colorless</div>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">Regulation Mark</div>
+        <div class="chip-group" id="markChips">
+          <div class="chip active" data-val="all" onclick="setChip(this,'mark')">ALL</div>
+          <div class="chip" data-val="H" onclick="setChip(this,'mark')">H</div>
+          <div class="chip" data-val="I" onclick="setChip(this,'mark')">I</div>
+          <div class="chip" data-val="J" onclick="setChip(this,'mark')">J</div>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">Trainer Subtype</div>
+        <div class="chip-group" id="trainerChips">
+          <div class="chip active" data-val="all" onclick="setChip(this,'trainer')">ALL</div>
+          <div class="chip" data-val="Supporter" onclick="setChip(this,'trainer')">SUPPORTER</div>
+          <div class="chip" data-val="Item" onclick="setChip(this,'trainer')">ITEM</div>
+          <div class="chip" data-val="Stadium" onclick="setChip(this,'trainer')">STADIUM</div>
+          <div class="chip" data-val="Pokémon Tool" onclick="setChip(this,'trainer')">TOOL</div>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">Special</div>
+        <div class="chip-group">
+          <div class="chip" id="exFilter" onclick="toggleSpecial('ex')">EX</div>
+          <div class="chip" id="aceFilter" onclick="toggleSpecial('ace')">ACE SPEC</div>
+          <div class="chip" id="teraFilter" onclick="toggleSpecial('tera')">TERA</div>
+          <div class="chip" id="inDeckFilter" onclick="toggleSpecial('inDeck')">IN DECK</div>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">Set</div>
+        <select id="setFilter" onchange="applyFilters()">
+          <option value="all">All Sets</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CENTER: Card Browser -->
+  <div class="card-browser">
+    <div class="browser-toolbar">
+      <div class="result-count">Showing <span id="hShowing2">0</span> cards</div>
+      <select class="sort-select" id="sortSelect" onchange="applyFilters()">
+        <option value="name">Sort: Name</option>
+        <option value="set">Sort: Set</option>
+        <option value="type">Sort: Type</option>
+        <option value="hp">Sort: HP</option>
+        <option value="stage">Sort: Stage</option>
+      </select>
+      <div class="view-toggle">
+        <button class="view-btn active" id="gridViewBtn" onclick="setView('grid')">⊞</button>
+        <button class="view-btn" id="listViewBtn" onclick="setView('list')">☰</button>
+      </div>
+    </div>
+    <div class="card-grid" id="cardGrid"></div>
+  </div>
+
+  <!-- RIGHT: Deck Panel -->
+  <div class="deck-panel">
+    <div class="deck-header">
+      <div class="deck-title-row">
+        <input type="text" class="deck-name-input" id="deckNameInput" value="My Deck" placeholder="Deck name...">
+        <div class="deck-count invalid" id="deckCount">0/60</div>
+      </div>
+      <div class="deck-bar-wrap">
+        <div class="deck-bar" id="deckBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="deck-breakdown">
+      <div class="db-item"><div class="db-num" id="dbPokemon">0</div><div class="db-label">POKÉMON</div></div>
+      <div class="db-item"><div class="db-num" id="dbTrainer">0</div><div class="db-label">TRAINER</div></div>
+      <div class="db-item"><div class="db-num" id="dbEnergy">0</div><div class="db-label">ENERGY</div></div>
+      <div class="db-item"><div class="db-num" id="dbTypes">—</div><div class="db-label">TYPES</div></div>
+      <div class="db-item"><div class="db-num" id="dbEx">0</div><div class="db-label">EX CARDS</div></div>
+      <div class="db-item"><div class="db-num" id="dbAce">0</div><div class="db-label">ACE SPEC</div></div>
+    </div>
+
+    <div class="deck-list" id="deckList"></div>
+
+    <div class="validation-panel" id="validationPanel"></div>
+
+    <div class="deck-actions">
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="showExport()">EXPORT</button>
+        <button class="btn btn-outline" onclick="saveDeck()">SAVE</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="newDeck()">NEW DECK</button>
+        <button class="btn btn-danger" onclick="clearDeck()">CLEAR</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Card Detail Modal -->
+<div class="modal-overlay" id="cardModal" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div class="modal-inner" id="modalInner"></div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-overlay" id="exportModal" onclick="closeExportModal(event)">
+  <div class="export-modal">
+    <button class="modal-close" onclick="document.getElementById('exportModal').classList.remove('open')">✕</button>
+    <div class="export-title">// EXPORT DECK LIST</div>
+    <textarea class="export-textarea" id="exportText" readonly></textarea>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn btn-primary" onclick="copyExport()">COPY TO CLIPBOARD</button>
+      <button class="btn btn-outline" onclick="downloadExport()">DOWNLOAD .TXT</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let allCards = [];
+let filteredCards = [];
+let deck = {}; // cardId -> {card, qty}
+let currentView = 'grid';
+let filters = {
+  search: '',
+  supertype: 'all',
+  stage: 'all',
+  type: 'all',
+  mark: 'all',
+  trainer: 'all',
+  set: 'all',
+  ex: false,
+  ace: false,
+  tera: false,
+  inDeck: false,
+};
+
+const TYPE_COLORS = {
+  'Fire':'#ff6633','Water':'#3399ff','Grass':'#44bb44','Lightning':'#ffcc00',
+  'Psychic':'#dd44cc','Fighting':'#cc6633','Darkness':'#9966cc','Metal':'#99aacc',
+  'Dragon':'#6688cc','Colorless':'#aabbcc','Fairy':'#ff88cc',
+};
+
+const ENERGY_COLORS = {
+  'Fire':'#ff6633','Water':'#3399ff','Grass':'#44bb44','Lightning':'#ffcc00',
+  'Psychic':'#dd44cc','Fighting':'#cc6633','Darkness':'#9966cc','Metal':'#99aacc',
+  'Dragon':'#6688cc','Colorless':'#aabbcc','Fairy':'#ff88cc','Free':'#444',
+};
+
+// ══════════════════════════════════════════════════════
+// LOAD DATABASE
+// ══════════════════════════════════════════════════════
+async function loadDatabase() {
+  const loadBar = document.getElementById('loadBar');
+  const loadMsg = document.getElementById('loadMsg');
+
+  try {
+    loadMsg.textContent = 'Fetching TCG-HIJ-Database.json...';
+    loadBar.style.width = '20%';
+
+    const response = await fetch('TCG-HIJ-Database.json');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    loadMsg.textContent = 'Parsing card data...';
+    loadBar.style.width = '60%';
+
+    const data = await response.json();
+    allCards = data.cards || data; // support both wrapped and raw array
+
+    loadMsg.textContent = `Processing ${allCards.length} cards...`;
+    loadBar.style.width = '80%';
+
+    // Populate set filter
+    const sets = [...new Set(allCards.map(c => c.set?.name).filter(Boolean))].sort();
+    const setFilter = document.getElementById('setFilter');
+    sets.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s; opt.textContent = s;
+      setFilter.appendChild(opt);
+    });
+
+    // Update header
+    document.getElementById('hTotalCards').textContent = allCards.length.toLocaleString();
+    document.getElementById('hTotalSets').textContent = sets.length;
+
+    loadBar.style.width = '100%';
+    loadMsg.textContent = 'Ready!';
+
+    setTimeout(() => {
+      document.getElementById('loadingScreen').style.display = 'none';
+      applyFilters();
+      loadSavedDeck();
+    }, 400);
+
+  } catch (err) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('errorScreen').style.display = 'flex';
+    document.getElementById('errMsg').textContent =
+      `Could not load TCG-HIJ-Database.json.\n\nError: ${err.message}\n\nMake sure the JSON file is in the same folder as this HTML file and you're opening it through a local server (e.g. VS Code Live Server, or python -m http.server).`;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// FILTERS
+// ══════════════════════════════════════════════════════
+function setChip(el, group) {
+  const val = el.dataset.val;
+  if (val === 'all') {
+    // deactivate all others, activate "all"
+    el.closest('.chip-group, .filter-section').querySelectorAll('.chip, .type-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  } else {
+    // deactivate "all" chip
+    const allChip = el.closest('.chip-group, .filter-section, .filter-body').querySelector('[data-val="all"]');
+    if (allChip) allChip.classList.remove('active');
+    el.classList.toggle('active');
+    // if nothing active, reactivate "all"
+    const anyActive = [...el.closest('.chip-group').querySelectorAll('.chip, .type-chip')].filter(c => c.classList.contains('active') && c.dataset.val !== 'all');
+    if (anyActive.length === 0 && allChip) allChip.classList.add('active');
+  }
+  filters[group] = val === 'all' ? 'all' :
+    [...el.closest('.chip-group').querySelectorAll('.chip.active, .type-chip.active')]
+      .map(c => c.dataset.val).filter(v => v !== 'all');
+  if (filters[group].length === 0) filters[group] = 'all';
+  applyFilters();
+}
+
+function toggleSpecial(key) {
+  filters[key] = !filters[key];
+  document.getElementById(key + 'Filter').classList.toggle('active', filters[key]);
+  applyFilters();
+}
+
+function clearFilters() {
+  filters = { search:'',supertype:'all',stage:'all',type:'all',mark:'all',trainer:'all',set:'all',ex:false,ace:false,tera:false,inDeck:false };
+  document.getElementById('searchInput').value = '';
+  document.getElementById('setFilter').value = 'all';
+  document.querySelectorAll('.chip, .type-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.val === 'all');
+  });
+  ['exFilter','aceFilter','teraFilter','inDeckFilter'].forEach(id => {
+    document.getElementById(id)?.classList.remove('active');
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  filters.search = document.getElementById('searchInput').value.toLowerCase();
+  filters.set = document.getElementById('setFilter').value;
+
+  filteredCards = allCards.filter(card => {
+    // Search
+    if (filters.search) {
+      const searchable = [
+        card.name,
+        ...(card.attacks||[]).map(a => a.name + ' ' + a.text),
+        ...(card.abilities||[]).map(a => a.name + ' ' + a.text),
+        card.set?.name,
+        ...(card.rules||[]),
+      ].join(' ').toLowerCase();
+      if (!searchable.includes(filters.search)) return false;
+    }
+
+    // Supertype
+    if (filters.supertype !== 'all' && card.supertype !== filters.supertype) return false;
+
+    // Stage
+    if (filters.stage !== 'all') {
+      if (!card.stage || card.stage !== filters.stage) return false;
+    }
+
+    // Type (array)
+    if (filters.type !== 'all' && Array.isArray(filters.type)) {
+      if (!card.types?.some(t => filters.type.includes(t))) return false;
+    }
+
+    // Mark
+    if (filters.mark !== 'all' && Array.isArray(filters.mark)) {
+      if (!filters.mark.includes(card.regulationMark)) return false;
+    }
+
+    // Trainer subtype
+    if (filters.trainer !== 'all' && Array.isArray(filters.trainer)) {
+      if (!card.subtypes?.some(s => filters.trainer.includes(s))) return false;
+    }
+
+    // Set
+    if (filters.set !== 'all' && card.set?.name !== filters.set) return false;
+
+    // Special
+    if (filters.ex && !card.isEx) return false;
+    if (filters.ace && !(card.subtypes?.includes('ACE SPEC') || card.rules?.some(r => r.includes('ACE SPEC')))) return false;
+    if (filters.tera && !card.subtypes?.some(s => s.includes('Tera'))) return false;
+    if (filters.inDeck && !deck[card.id]) return false;
+
+    return true;
+  });
+
+  // Sort
+  const sort = document.getElementById('sortSelect').value;
+  filteredCards.sort((a, b) => {
+    if (sort === 'name') return a.name.localeCompare(b.name);
+    if (sort === 'set') return (a.set?.releaseDate||'').localeCompare(b.set?.releaseDate||'');
+    if (sort === 'type') return (a.types?.[0]||'').localeCompare(b.types?.[0]||'');
+    if (sort === 'hp') return (parseInt(b.hp)||0) - (parseInt(a.hp)||0);
+    if (sort === 'stage') return (a.stage||'').localeCompare(b.stage||'');
+    return 0;
+  });
+
+  document.getElementById('hShowing').textContent = filteredCards.length.toLocaleString();
+  document.getElementById('hShowing2').textContent = filteredCards.length.toLocaleString();
+  renderCards();
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER CARDS
+// ══════════════════════════════════════════════════════
+function renderCards() {
+  const grid = document.getElementById('cardGrid');
+  const isList = currentView === 'list';
+  grid.className = 'card-grid' + (isList ? ' list-view' : '');
+  grid.innerHTML = '';
+
+  if (filteredCards.length === 0) {
+    grid.innerHTML = '<div class="no-results"><div class="no-results-icon">⬡</div>No cards match your filters.</div>';
+    return;
+  }
+
+  // Render up to 300 for performance; add load more for large sets
+  const toRender = filteredCards.slice(0, 300);
+
+  toRender.forEach(card => {
+    const inDeckQty = deck[card.id]?.qty || 0;
+    const maxCopies = getMaxCopies(card);
+    const isMaxed = inDeckQty >= maxCopies;
+
+    if (isList) {
+      const row = document.createElement('div');
+      row.className = 'card-list-row' + (inDeckQty > 0 ? ' in-deck' : '') + (isMaxed ? ' maxed' : '');
+      const typeColor = card.types?.[0] ? (TYPE_COLORS[card.types[0]] || '#888') : '#888';
+      row.innerHTML = `
+        <img class="list-img" src="${card.images?.small||''}" loading="lazy" onerror="this.style.display='none'">
+        <div class="list-name">${card.name}</div>
+        <div class="list-set" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${card.set?.name||'—'}</div>
+        <div class="list-type" style="color:${typeColor}">${card.types?.join('/') || card.supertype}</div>
+        <div class="list-stage">${card.stage || card.subtypes?.join(', ') || '—'}</div>
+        <div class="list-hp">${card.hp || '—'}</div>
+      `;
+      row.onclick = () => openModal(card);
+      row.ondblclick = () => addCardToDeck(card);
+      grid.appendChild(row);
+    } else {
+      const el = document.createElement('div');
+      el.className = 'card-thumb' + (inDeckQty > 0 ? ' in-deck' : '') + (isMaxed ? ' maxed' : '');
+      el.innerHTML = `
+        <div class="card-img-wrap">
+          <img src="${card.images?.small||''}" loading="lazy" onerror="this.parentElement.querySelector('.img-placeholder').style.display='flex';this.style.display='none'">
+          <div class="img-placeholder" style="display:none">🃏</div>
+          <div class="card-count-badge">${inDeckQty}×</div>
+          <div class="add-overlay">+</div>
+        </div>
+        <div class="card-thumb-info">
+          <div class="card-thumb-name">${card.name}</div>
+          <div class="card-thumb-sub">${card.set?.name||'—'}</div>
+        </div>
+      `;
+      el.onclick = () => openModal(card);
+      el.ondblclick = (e) => { e.preventDefault(); addCardToDeck(card); };
+      grid.appendChild(el);
+    }
+  });
+
+  if (filteredCards.length > 300) {
+    const more = document.createElement('div');
+    more.className = 'no-results';
+    more.style.gridColumn = '1/-1';
+    more.innerHTML = `<div class="no-results-icon">⋯</div>Showing 300 of ${filteredCards.length}. Refine filters to see more.`;
+    grid.appendChild(more);
+  }
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('gridViewBtn').classList.toggle('active', v === 'grid');
+  document.getElementById('listViewBtn').classList.toggle('active', v === 'list');
+  renderCards();
+}
+
+// ══════════════════════════════════════════════════════
+// DECK MANAGEMENT
+// ══════════════════════════════════════════════════════
+function getMaxCopies(card) {
+  // ACE SPEC: enforce in validateDeck, max 4 per name but only 1 total ace spec
+  if (card.subtypes?.includes('ACE SPEC') || card.rules?.some(r => r.includes('ACE SPEC'))) return 1;
+  // Basic energy: unlimited
+  if (card.supertype === 'Energy' && card.subtypes?.includes('Basic')) return 60;
+  return 4;
+}
+
+function getDeckTotal() {
+  return Object.values(deck).reduce((s, e) => s + e.qty, 0);
+}
+
+function addCardToDeck(card) {
+  const total = getDeckTotal();
+  if (total >= 60) { showToast('Deck is full (60 cards)!', 'warn'); return; }
+
+  const max = getMaxCopies(card);
+  const current = deck[card.id]?.qty || 0;
+
+  if (current >= max) {
+    showToast(`Max ${max} copies of ${card.name}`, 'warn');
+    return;
+  }
+
+  // ACE SPEC: only 1 total in deck
+  if (card.subtypes?.includes('ACE SPEC') || card.rules?.some(r => r.includes('ACE SPEC'))) {
+    const hasAce = Object.values(deck).some(e =>
+      e.card.subtypes?.includes('ACE SPEC') || e.card.rules?.some(r => r.includes('ACE SPEC'))
+    );
+    if (hasAce && !deck[card.id]) { showToast('Only 1 ACE SPEC card allowed per deck!', 'error'); return; }
+  }
+
+  if (!deck[card.id]) deck[card.id] = { card, qty: 0 };
+  deck[card.id].qty++;
+
+  renderDeck();
+  renderCards();
+  saveDeckToStorage();
+  showToast(`+ ${card.name}`, 'success');
+}
+
+function removeFromDeck(cardId, all = false) {
+  if (!deck[cardId]) return;
+  if (all || deck[cardId].qty <= 1) {
+    delete deck[cardId];
+  } else {
+    deck[cardId].qty--;
+  }
+  renderDeck();
+  renderCards();
+  saveDeckToStorage();
+}
+
+function renderDeck() {
+  const list = document.getElementById('deckList');
+  list.innerHTML = '';
+  const total = getDeckTotal();
+
+  // Update header
+  const countEl = document.getElementById('deckCount');
+  countEl.textContent = `${total}/60`;
+  countEl.className = 'deck-count ' + (total === 60 ? 'valid' : total > 60 ? 'over' : 'invalid');
+
+  const pct = Math.min(100, (total / 60) * 100);
+  document.getElementById('deckBar').style.width = pct + '%';
+  document.getElementById('deckBar').className = 'deck-bar' + (total > 60 ? ' over' : '');
+
+  // Group by supertype
+  const groups = { 'Pokémon': [], 'Trainer': [], 'Energy': [] };
+  Object.values(deck).forEach(entry => {
+    const st = entry.card.supertype;
+    if (groups[st]) groups[st].push(entry);
+    else groups['Trainer'].push(entry);
+  });
+
+  let pCount = 0, tCount = 0, eCount = 0, exCount = 0, aceCount = 0;
+
+  ['Pokémon', 'Trainer', 'Energy'].forEach(group => {
+    const entries = groups[group].sort((a, b) => a.card.name.localeCompare(b.card.name));
+    if (entries.length === 0) return;
+
+    const groupTotal = entries.reduce((s, e) => s + e.qty, 0);
+    if (group === 'Pokémon') pCount = groupTotal;
+    if (group === 'Trainer') tCount = groupTotal;
+    if (group === 'Energy') eCount = groupTotal;
+    exCount += entries.filter(e => e.card.isEx).reduce((s, e) => s + e.qty, 0);
+    aceCount += entries.filter(e => e.card.subtypes?.includes('ACE SPEC') || e.card.rules?.some(r => r.includes('ACE SPEC'))).reduce((s, e) => s + e.qty, 0);
+
+    const label = document.createElement('div');
+    label.className = 'deck-section-label';
+    label.innerHTML = `<span>${group.toUpperCase()}</span><span>${groupTotal}</span>`;
+    list.appendChild(label);
+
+    entries.forEach(entry => {
+      const { card, qty } = entry;
+      const el = document.createElement('div');
+      el.className = 'deck-entry';
+      el.innerHTML = `
+        <img class="deck-entry-img" src="${card.images?.small||''}" loading="lazy" onerror="this.style.display='none'">
+        <div style="flex:1;min-width:0">
+          <div class="deck-entry-name">${card.name}</div>
+          <div class="deck-entry-set">${card.set?.name||'—'} · ${card.regulationMark||''}</div>
+        </div>
+        <div class="qty-controls">
+          <button class="qty-btn remove" onclick="removeFromDeck('${card.id}')">−</button>
+          <div class="qty-num">${qty}</div>
+          <button class="qty-btn" onclick="addCardToDeck(${JSON.stringify(card).replace(/"/g,'&quot;')})">+</button>
+          <button class="qty-btn remove" onclick="removeFromDeck('${card.id}',true)" title="Remove all">✕</button>
+        </div>
+      `;
+      list.appendChild(el);
+    });
+  });
+
+  // Breakdown stats
+  document.getElementById('dbPokemon').textContent = pCount;
+  document.getElementById('dbTrainer').textContent = tCount;
+  document.getElementById('dbEnergy').textContent = eCount;
+  document.getElementById('dbEx').textContent = exCount;
+  document.getElementById('dbAce').textContent = aceCount;
+
+  // Types in deck
+  const types = new Set();
+  Object.values(deck).forEach(e => e.card.types?.forEach(t => types.add(t)));
+  document.getElementById('dbTypes').textContent = types.size > 0 ? [...types].map(t => t[0]).join('/') : '—';
+
+  validateDeck();
+}
+
+function validateDeck() {
+  const panel = document.getElementById('validationPanel');
+  panel.innerHTML = '';
+  const total = getDeckTotal();
+  const msgs = [];
+
+  if (total === 60) msgs.push({ type: 'ok', text: '✓ Deck is exactly 60 cards' });
+  else if (total < 60) msgs.push({ type: 'warn', text: `⚠ Need ${60 - total} more cards (${total}/60)` });
+  else msgs.push({ type: 'err', text: `✕ Too many cards! Remove ${total - 60} (${total}/60)` });
+
+  // Basic Pokémon check
+  const hasBasic = Object.values(deck).some(e => e.card.supertype === 'Pokémon' && e.card.stage === 'Basic');
+  if (!hasBasic) msgs.push({ type: 'err', text: '✕ No Basic Pokémon in deck' });
+  else msgs.push({ type: 'ok', text: '✓ Has Basic Pokémon' });
+
+  // ACE SPEC check
+  const aceEntries = Object.values(deck).filter(e =>
+    e.card.subtypes?.includes('ACE SPEC') || e.card.rules?.some(r => r.includes('ACE SPEC'))
+  );
+  if (aceEntries.length > 1) msgs.push({ type: 'err', text: `✕ Multiple ACE SPEC cards (only 1 allowed)` });
+  else if (aceEntries.length === 1) msgs.push({ type: 'ok', text: `✓ ACE SPEC: ${aceEntries[0].card.name}` });
+
+  msgs.forEach(m => {
+    const div = document.createElement('div');
+    div.className = `val-item ${m.type}`;
+    div.textContent = m.text;
+    panel.appendChild(div);
+  });
+}
+
+function clearDeck() {
+  if (Object.keys(deck).length === 0) return;
+  if (!confirm('Clear all cards from deck?')) return;
+  deck = {};
+  renderDeck();
+  renderCards();
+  saveDeckToStorage();
+}
+
+function newDeck() {
+  if (Object.keys(deck).length > 0) {
+    if (!confirm('Start a new deck? Current deck will be lost unless saved.')) return;
+  }
+  deck = {};
+  document.getElementById('deckNameInput').value = 'My Deck';
+  renderDeck();
+  renderCards();
+  saveDeckToStorage();
+}
+
+// ══════════════════════════════════════════════════════
+// CARD DETAIL MODAL
+// ══════════════════════════════════════════════════════
+function openModal(card) {
+  const modal = document.getElementById('cardModal');
+  const inner = document.getElementById('modalInner');
+
+  const inDeckQty = deck[card.id]?.qty || 0;
+  const maxCopies = getMaxCopies(card);
+  const canAdd = getDeckTotal() < 60 && inDeckQty < maxCopies;
+
+  // Build energy pips for attacks
+  function energyPips(cost) {
+    return cost.map(e => {
+      const color = ENERGY_COLORS[e] || '#888';
+      return `<div class="energy-pip" style="background:${color}">${e[0]}</div>`;
+    }).join('');
+  }
+
+  const attacksHTML = (card.attacks || []).map(a => `
+    <div class="attack-block">
+      <div class="attack-header">
+        <div class="attack-cost">${energyPips(a.cost || [])}</div>
+        <div class="attack-name">${a.name}</div>
+        <div class="attack-damage">${a.damage || ''}</div>
+      </div>
+      ${a.text ? `<div class="attack-text">${a.text}</div>` : ''}
+    </div>
+  `).join('');
+
+  const abilitiesHTML = (card.abilities || []).map(a => `
+    <div class="ability-block">
+      <div class="ability-label">${a.type || 'ABILITY'}</div>
+      <div class="ability-name">${a.name}</div>
+      <div class="ability-text">${a.text}</div>
+    </div>
+  `).join('');
+
+  const rulesHTML = (card.rules || []).length > 0
+    ? card.rules.map(r => `<div class="rules-text">${r}</div>`).join('')
+    : '';
+
+  const typeColor = card.types?.[0] ? (TYPE_COLORS[card.types[0]] || '#888') : '#aaa';
+
+  inner.innerHTML = `
+    <div class="modal-img-side">
+      <img class="modal-img" src="${card.images?.large || card.images?.small || ''}" onerror="this.src=''; this.style.display='none'">
+      <button class="modal-add-btn" onclick="addCardToDeck(${JSON.stringify(card).replace(/"/g,'&quot;')})" ${canAdd ? '' : 'disabled'}>
+        ${canAdd ? '+ ADD TO DECK' : inDeckQty >= maxCopies ? `MAX (${maxCopies}×)` : 'DECK FULL'}
+      </button>
+      ${inDeckQty > 0 ? `<button class="modal-remove-btn" onclick="removeFromDeck('${card.id}')">− REMOVE ONE (${inDeckQty}× in deck)</button>` : ''}
+      <div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted)">
+        ${card.set?.name || ''}<br>${card.number || ''} · Mark ${card.regulationMark || '?'}
+      </div>
+    </div>
+    <div class="modal-info-side">
+      <div class="modal-name">${card.name}</div>
+      <div class="modal-meta">
+        <div class="meta-tag highlight">${card.supertype}</div>
+        ${card.stage ? `<div class="meta-tag">${card.stage}</div>` : ''}
+        ${card.types?.map(t => `<div class="meta-tag" style="border-color:${TYPE_COLORS[t]||'#888'};color:${TYPE_COLORS[t]||'#888'}">${t}</div>`).join('') || ''}
+        ${card.isEx ? '<div class="meta-tag gold">ex</div>' : ''}
+        ${card.subtypes?.includes('ACE SPEC') || card.rules?.some(r=>r.includes('ACE SPEC')) ? '<div class="meta-tag gold">ACE SPEC</div>' : ''}
+        ${card.rarity ? `<div class="meta-tag">${card.rarity}</div>` : ''}
+      </div>
+
+      ${card.supertype === 'Pokémon' ? `
+      <div class="modal-section">
+        <div class="modal-section-title">STATS</div>
+        <div class="stat-row">
+          <div class="stat-item"><div class="stat-val">${card.hp || '—'}</div><div class="stat-key">HP</div></div>
+          <div class="stat-item"><div class="stat-val">${card.weaknesses?.map(w=>`${w.type} ${w.value}`).join(', ') || '—'}</div><div class="stat-key">WEAKNESS</div></div>
+          <div class="stat-item"><div class="stat-val">${card.convertedRetreatCost ?? '—'}</div><div class="stat-key">RETREAT</div></div>
+        </div>
+        ${card.evolvesFrom ? `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px">Evolves from: <span style="color:var(--text)">${card.evolvesFrom}</span></div>` : ''}
+      </div>
+      ` : ''}
+
+      ${abilitiesHTML ? `<div class="modal-section"><div class="modal-section-title">ABILITIES</div>${abilitiesHTML}</div>` : ''}
+      ${attacksHTML ? `<div class="modal-section"><div class="modal-section-title">ATTACKS</div>${attacksHTML}</div>` : ''}
+      ${rulesHTML ? `<div class="modal-section"><div class="modal-section-title">RULES</div>${rulesHTML}</div>` : ''}
+      ${card.flavorText ? `<div class="modal-section"><div style="font-style:italic;font-size:12px;color:var(--muted);line-height:1.5">${card.flavorText}</div></div>` : ''}
+    </div>
+  `;
+
+  modal.classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('cardModal')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('cardModal').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ══════════════════════════════════════════════════════
+function showExport() {
+  const name = document.getElementById('deckNameInput').value || 'My Deck';
+  const total = getDeckTotal();
+  let text = `${name}\n${'='.repeat(name.length)}\n`;
+  text += `Total: ${total}/60 cards\n\n`;
+
+  const groups = { 'Pokémon': [], 'Trainer': [], 'Energy': [] };
+  Object.values(deck).forEach(e => {
+    const st = e.card.supertype;
+    (groups[st] || groups['Trainer']).push(e);
+  });
+
+  ['Pokémon', 'Trainer', 'Energy'].forEach(g => {
+    const entries = groups[g].sort((a,b) => a.card.name.localeCompare(b.card.name));
+    if (entries.length === 0) return;
+    const gTotal = entries.reduce((s,e) => s+e.qty, 0);
+    text += `${g} (${gTotal})\n`;
+    entries.forEach(e => {
+      text += `${e.qty}x ${e.card.name} ${e.card.set?.id?.toUpperCase()||''} ${e.card.number||''}\n`;
+    });
+    text += '\n';
+  });
+
+  document.getElementById('exportText').value = text;
+  document.getElementById('exportModal').classList.add('open');
+}
+
+function closeExportModal(e) {
+  if (e.target === document.getElementById('exportModal')) document.getElementById('exportModal').classList.remove('open');
+}
+
+function copyExport() {
+  navigator.clipboard.writeText(document.getElementById('exportText').value);
+  showToast('Copied to clipboard!', 'success');
+}
+
+function downloadExport() {
+  const name = document.getElementById('deckNameInput').value || 'My Deck';
+  const text = document.getElementById('exportText').value;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name.replace(/[^a-z0-9]/gi,'_') + '.txt';
+  a.click();
+}
+
+function loadDeckFromText() {
+  const text = prompt('Paste deck list (format: "4x Charizard ex OBF 125")');
+  if (!text) return;
+  const lines = text.split('\n');
+  let added = 0, notFound = 0;
+  lines.forEach(line => {
+    const m = line.match(/^(\d+)x?\s+(.+?)(?:\s+[A-Z0-9]+\s+\d+)?$/i);
+    if (!m) return;
+    const qty = parseInt(m[1]);
+    const name = m[2].trim();
+    const card = allCards.find(c => c.name.toLowerCase() === name.toLowerCase());
+    if (card) {
+      for (let i = 0; i < qty; i++) addCardToDeck(card);
+      added++;
+    } else notFound++;
+  });
+  showToast(`Imported ${added} cards${notFound > 0 ? `, ${notFound} not found` : ''}`, 'success');
+}
+
+// ══════════════════════════════════════════════════════
+// SAVE / LOAD
+// ══════════════════════════════════════════════════════
+function saveDeckToStorage() {
+  try {
+    const save = {
+      name: document.getElementById('deckNameInput').value,
+      deck: Object.fromEntries(Object.entries(deck).map(([id, e]) => [id, { cardId: id, qty: e.qty }]))
+    };
+    localStorage.setItem('ptcg_deck', JSON.stringify(save));
+  } catch(e) {}
+}
+
+function saveDeck() {
+  saveDeckToStorage();
+  showToast('Deck saved!', 'success');
+}
+
+function loadSavedDeck() {
+  try {
+    const raw = localStorage.getItem('ptcg_deck');
+    if (!raw) return;
+    const save = JSON.parse(raw);
+    document.getElementById('deckNameInput').value = save.name || 'My Deck';
+    deck = {};
+    Object.entries(save.deck || {}).forEach(([cardId, entry]) => {
+      const card = allCards.find(c => c.id === cardId);
+      if (card) deck[cardId] = { card, qty: entry.qty };
+    });
+    renderDeck();
+    renderCards();
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = 'toast', 2000);
+}
+
+// ══════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ══════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeModalDirect();
+    document.getElementById('exportModal').classList.remove('open');
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+});
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+loadDatabase();
+</script>
+</body>
+</html>
